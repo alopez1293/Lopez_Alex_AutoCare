@@ -1,11 +1,14 @@
 import { Stack } from "expo-router";
+import { GarageProvider } from "../context/GarageContext";
 
 export default function RootLayout() {
   return (
-    <Stack
-      screenOptions={{
-        headerTitleAlign: "center",
-      }}
-    />
+    <GarageProvider>
+      <Stack
+        screenOptions={{
+          headerTitleAlign: "center",
+        }}
+      />
+    </GarageProvider>
   );
 }

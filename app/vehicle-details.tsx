@@ -1,32 +1,18 @@
 import { Link, Stack, useLocalSearchParams } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Screen from "../components/Screen";
-
-const VEHICLES = [
-  {
-    id: "1",
-    name: "2016 Ford F-150",
-    mileage: 142300,
-    vin: "1FTEXXXXXDRAFT",
-    notes: "Needs new wipers soon.",
-  },
-  {
-    id: "2",
-    name: "2012 Honda Accord",
-    mileage: 186050,
-    vin: "1HGXXXXXZDRAFT",
-    notes: "Check tire pressure monthly.",
-  },
-];
-
-const SERVICE_HISTORY_DRAFT = [
-  { date: "2025-11-02", service: "Oil Change", mileage: 139800, cost: 58.99 },
-  { date: "2025-08-14", service: "Tire Rotation", mileage: 136200, cost: 25.0 },
-];
+import { useGarage } from "../context/GarageContext";
+import { colors } from "../theme/colors";
 
 export default function VehicleDetailsScreen() {
   const { vehicleId } = useLocalSearchParams<{ vehicleId?: string }>();
-  const vehicle = VEHICLES.find((v) => v.id === vehicleId) ?? VEHICLES[0];
+  const { vehicles, serviceHistory } = useGarage();
+
+  const vehicle = vehicles.find((v) => v.id === vehicleId) ?? vehicles[0];
+
+  const vehicleServiceHistory = serviceHistory.filter(
+    (event) => event.vehicleId === vehicle.id,
+  );
 
   return (
     <Screen>
@@ -34,7 +20,7 @@ export default function VehicleDetailsScreen() {
 
       <Text style={styles.title}>{vehicle.name}</Text>
       <Text style={styles.subtitle}>
-        Draft details page for a selected vehicle.
+        Details and service history for this vehicle.
       </Text>
 
       <View style={styles.card}>
@@ -43,22 +29,28 @@ export default function VehicleDetailsScreen() {
           Mileage: {vehicle.mileage.toLocaleString()} mi
         </Text>
         <Text style={styles.cardBody}>VIN: {vehicle.vin}</Text>
-        <Text style={styles.cardBody}>Notes: {vehicle.notes}</Text>
+        <Text style={styles.cardBody}>
+          Notes: {vehicle.notes || "No notes added yet."}
+        </Text>
       </View>
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Recent Service History</Text>
-        {SERVICE_HISTORY_DRAFT.map((s, idx) => (
-          <View key={idx} style={styles.historyRow}>
-            <Text style={styles.historyMain}>{s.service}</Text>
-            <Text style={styles.historyMeta}>
-              {s.date} • {s.mileage.toLocaleString()} mi • ${s.cost}
-            </Text>
-          </View>
-        ))}
-        <Text style={styles.smallNote}>
-          Later I’ll load real history per vehicle and allow edit/delete.
-        </Text>
+
+        {vehicleServiceHistory.length === 0 ? (
+          <Text style={styles.cardBody}>No service history recorded yet.</Text>
+        ) : (
+          vehicleServiceHistory.map((s) => (
+            <View key={s.id} style={styles.historyRow}>
+              <Text style={styles.historyMain}>{s.service}</Text>
+              <Text style={styles.historyMeta}>
+                {s.date} • {s.mileage.toLocaleString()} mi • $
+                {s.cost.toFixed(2)}
+              </Text>
+              {s.notes ? <Text style={styles.smallNote}>{s.notes}</Text> : null}
+            </View>
+          ))
+        )}
       </View>
 
       <Link
@@ -77,25 +69,68 @@ export default function VehicleDetailsScreen() {
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 24, fontWeight: "700" },
-  subtitle: { fontSize: 16, lineHeight: 22 },
+  title: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: colors.text,
+  },
+  subtitle: {
+    fontSize: 16,
+    lineHeight: 22,
+    color: colors.subtext,
+  },
 
-  card: { padding: 12, borderWidth: 1, borderRadius: 12, gap: 8 },
-  cardTitle: { fontSize: 16, fontWeight: "700" },
-  cardBody: { fontSize: 14, lineHeight: 20 },
+  card: {
+    padding: 14,
+    borderWidth: 1,
+    borderRadius: 14,
+    gap: 8,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.text,
+  },
+  cardBody: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.subtext,
+  },
 
-  historyRow: { gap: 2, paddingVertical: 6, borderTopWidth: 1 },
-  historyMain: { fontSize: 14, fontWeight: "700" },
-  historyMeta: { fontSize: 14 },
+  historyRow: {
+    gap: 4,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  historyMain: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: colors.text,
+  },
+  historyMeta: {
+    fontSize: 14,
+    color: colors.subtext,
+  },
 
-  smallNote: { fontSize: 12, lineHeight: 18 },
+  smallNote: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.subtext,
+  },
 
   primaryButton: {
     paddingVertical: 12,
     paddingHorizontal: 14,
     borderRadius: 12,
-    borderWidth: 1,
     alignItems: "center",
+    backgroundColor: colors.primary,
   },
-  primaryButtonText: { fontSize: 16, fontWeight: "700" },
+  primaryButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
 });

@@ -1,43 +1,28 @@
-import { router, Stack, useLocalSearchParams } from "expo-router";
+import { router, Stack } from "expo-router";
 import { useState } from "react";
 import {
-  Alert,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    Alert,
+    Pressable,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
 import Screen from "../components/Screen";
 import { useGarage } from "../context/GarageContext";
 import { colors } from "../theme/colors";
 
-export default function AddServiceScreen() {
-  const { vehicleId, vehicleName } = useLocalSearchParams<{
-    vehicleId?: string;
-    vehicleName?: string;
-  }>();
+export default function AddVehicleScreen() {
+  const { addVehicle } = useGarage();
 
-  const { addServiceEvent } = useGarage();
-
-  const [date, setDate] = useState("");
-  const [serviceType, setServiceType] = useState("");
-  const [odometer, setOdometer] = useState("");
-  const [cost, setCost] = useState("");
+  const [name, setName] = useState("");
+  const [mileage, setMileage] = useState("");
+  const [nextOilDue, setNextOilDue] = useState("");
+  const [vin, setVin] = useState("");
   const [notes, setNotes] = useState("");
 
-  function handleSave() {
-    if (!vehicleId) {
-      Alert.alert("Error", "Vehicle information is missing.");
-      return;
-    }
-
-    if (
-      !date.trim() ||
-      !serviceType.trim() ||
-      !odometer.trim() ||
-      !cost.trim()
-    ) {
+  function handleAddVehicle() {
+    if (!name.trim() || !mileage.trim() || !nextOilDue.trim() || !vin.trim()) {
       Alert.alert(
         "Missing Information",
         "Please fill out all required fields.",
@@ -45,83 +30,82 @@ export default function AddServiceScreen() {
       return;
     }
 
-    const mileageNumber = Number(odometer);
-    const costNumber = Number(cost);
+    const mileageNumber = Number(mileage);
+    const nextOilDueNumber = Number(nextOilDue);
 
-    if (Number.isNaN(mileageNumber) || Number.isNaN(costNumber)) {
-      Alert.alert("Invalid Input", "Odometer and cost must be valid numbers.");
+    if (Number.isNaN(mileageNumber) || Number.isNaN(nextOilDueNumber)) {
+      Alert.alert(
+        "Invalid Input",
+        "Mileage and next oil due must be valid numbers.",
+      );
       return;
     }
 
-    addServiceEvent({
-      vehicleId,
-      date: date.trim(),
-      service: serviceType.trim(),
+    addVehicle({
+      name: name.trim(),
       mileage: mileageNumber,
-      cost: costNumber,
+      nextOilDue: nextOilDueNumber,
+      vin: vin.trim(),
       notes: notes.trim(),
     });
 
-    router.replace({
-      pathname: "/vehicle-details",
-      params: { vehicleId },
-    });
+    router.replace("/");
   }
 
   return (
     <Screen>
-      <Stack.Screen options={{ title: "Add Service Event" }} />
+      <Stack.Screen options={{ title: "Add Vehicle" }} />
 
-      <Text style={styles.title}>Add Service Event</Text>
+      <Text style={styles.title}>Add Vehicle</Text>
       <Text style={styles.subtitle}>
-        Vehicle: {vehicleName ?? "Unknown"} (ID: {vehicleId ?? "?"})
+        Enter the vehicle details to add it to your garage.
       </Text>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Service Details</Text>
+        <Text style={styles.cardTitle}>Vehicle Information</Text>
 
         <View style={styles.field}>
-          <Text style={styles.label}>Date</Text>
+          <Text style={styles.label}>Vehicle Name</Text>
           <TextInput
             style={styles.input}
-            value={date}
-            onChangeText={setDate}
-            placeholder="YYYY-MM-DD"
+            value={name}
+            onChangeText={setName}
+            placeholder="e.g., 2018 Toyota Camry"
             placeholderTextColor={colors.subtext}
           />
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>Service Type</Text>
+          <Text style={styles.label}>Current Mileage</Text>
           <TextInput
             style={styles.input}
-            value={serviceType}
-            onChangeText={setServiceType}
-            placeholder="Oil Change, Brakes, Tire Rotation..."
-            placeholderTextColor={colors.subtext}
-          />
-        </View>
-
-        <View style={styles.field}>
-          <Text style={styles.label}>Odometer</Text>
-          <TextInput
-            style={styles.input}
-            value={odometer}
-            onChangeText={setOdometer}
+            value={mileage}
+            onChangeText={setMileage}
             keyboardType="numeric"
-            placeholder="e.g., 142500"
+            placeholder="e.g., 84250"
             placeholderTextColor={colors.subtext}
           />
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>Cost</Text>
+          <Text style={styles.label}>Next Oil Change Due</Text>
           <TextInput
             style={styles.input}
-            value={cost}
-            onChangeText={setCost}
+            value={nextOilDue}
+            onChangeText={setNextOilDue}
             keyboardType="numeric"
-            placeholder="e.g., 59.99"
+            placeholder="e.g., 87000"
+            placeholderTextColor={colors.subtext}
+          />
+        </View>
+
+        <View style={styles.field}>
+          <Text style={styles.label}>VIN</Text>
+          <TextInput
+            style={styles.input}
+            value={vin}
+            onChangeText={setVin}
+            placeholder="Enter VIN"
             placeholderTextColor={colors.subtext}
           />
         </View>
@@ -132,14 +116,14 @@ export default function AddServiceScreen() {
             style={[styles.input, styles.multiline]}
             value={notes}
             onChangeText={setNotes}
-            placeholder="Optional notes... shop name, reminder, parts used, etc."
+            placeholder="Optional notes about the vehicle"
             placeholderTextColor={colors.subtext}
             multiline
           />
         </View>
 
-        <Pressable style={styles.primaryButton} onPress={handleSave}>
-          <Text style={styles.primaryButtonText}>Add Event</Text>
+        <Pressable style={styles.primaryButton} onPress={handleAddVehicle}>
+          <Text style={styles.primaryButtonText}>Add Vehicle</Text>
         </Pressable>
       </View>
     </Screen>
