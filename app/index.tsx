@@ -1,6 +1,7 @@
+import * as ImagePicker from "expo-image-picker";
 import { Link, Stack } from "expo-router";
 import { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import Screen from "../components/Screen";
 import { useGarage } from "../context/GarageContext";
 import { colors } from "../theme/colors";
@@ -54,6 +55,11 @@ export default function GarageScreen() {
   const [loadingWeather, setLoadingWeather] = useState(true);
   const [weatherError, setWeatherError] = useState("");
 
+  const [vehiclePhotos, setVehiclePhotos] = useState<Record<string, string>>(
+    {},
+  );
+  const [photoError, setPhotoError] = useState("");
+
   useEffect(() => {
     async function fetchWeather() {
       try {
@@ -85,6 +91,46 @@ export default function GarageScreen() {
     fetchWeather();
   }, []);
 
+  async function pickVehiclePhoto(vehicleId: string) {
+    try {
+      setPhotoError("");
+
+      const permissionResult =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permissionResult.granted) {
+        setPhotoError(
+          "Photo library permission is required to add a vehicle photo.",
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      const selectedImageUri = result.assets[0].uri;
+
+      setVehiclePhotos((currentPhotos) => ({
+        ...currentPhotos,
+        [vehicleId]: selectedImageUri,
+      }));
+    } catch (error) {
+      setPhotoError("Something went wrong while selecting the photo.");
+    }
+  }
+
+  const vehiclesDueSoon = vehicles.filter((vehicle) =>
+    isDueSoon(vehicle.mileage, vehicle.nextOilDue),
+  ).length;
+
   const weatherLabel = weather ? getWeatherLabel(weather.weathercode) : "";
   const drivingTip = weather
     ? getDrivingTip(weather.weathercode, weather.temperature)
@@ -94,29 +140,64 @@ export default function GarageScreen() {
     <Screen>
       <Stack.Screen options={{ title: "Garage" }} />
 
-      <Text style={styles.title}>AutoCare Log</Text>
-      <Text style={styles.subtitle}>
-        Track vehicles, view service history, and log maintenance events.
-      </Text>
+      <View style={styles.heroCard}>
+        <Text style={styles.kicker}>Vehicle Maintenance Dashboard</Text>
+        <Text style={styles.title}>AutoCare Log</Text>
+        <Text style={styles.subtitle}>
+          Track your vehicles, service history, mileage, and upcoming
+          maintenance in one place.
+        </Text>
+      </View>
+
+      <View style={styles.summaryRow}>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryNumber}>{vehicles.length}</Text>
+          <Text style={styles.summaryLabel}>
+            {vehicles.length === 1 ? "Vehicle" : "Vehicles"}
+          </Text>
+        </View>
+
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryNumber}>{vehiclesDueSoon}</Text>
+          <Text style={styles.summaryLabel}>Due Soon</Text>
+        </View>
+      </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Driving Conditions</Text>
+        <View style={styles.cardHeader}>
+          <View>
+            <Text style={styles.cardTitle}>Driving Conditions</Text>
+            <Text style={styles.cardSubTitle}>Hastings, NE</Text>
+          </View>
+          <Text style={styles.weatherIcon}>☁️</Text>
+        </View>
 
         {loadingWeather ? (
-          <Text style={styles.cardBody}>Loading weather...</Text>
+          <Text style={styles.cardBody}>Loading current weather...</Text>
         ) : weatherError ? (
           <Text style={styles.errorText}>{weatherError}</Text>
         ) : weather ? (
           <>
-            <Text style={styles.cardBody}>Location: Hastings, NE</Text>
-            <Text style={styles.cardBody}>Condition: {weatherLabel}</Text>
-            <Text style={styles.cardBody}>
-              Temperature: {weather.temperature}°F
-            </Text>
-            <Text style={styles.cardBody}>
-              Wind Speed: {weather.windspeed} mph
-            </Text>
-            <Text style={styles.tipText}>{drivingTip}</Text>
+            <View style={styles.weatherGrid}>
+              <View style={styles.weatherItem}>
+                <Text style={styles.weatherValue}>{weatherLabel}</Text>
+                <Text style={styles.weatherLabel}>Condition</Text>
+              </View>
+
+              <View style={styles.weatherItem}>
+                <Text style={styles.weatherValue}>{weather.temperature}°F</Text>
+                <Text style={styles.weatherLabel}>Temperature</Text>
+              </View>
+
+              <View style={styles.weatherItem}>
+                <Text style={styles.weatherValue}>{weather.windspeed} mph</Text>
+                <Text style={styles.weatherLabel}>Wind</Text>
+              </View>
+            </View>
+
+            <View style={styles.tipBox}>
+              <Text style={styles.tipText}>{drivingTip}</Text>
+            </View>
           </>
         ) : (
           <Text style={styles.cardBody}>No weather data available.</Text>
@@ -124,7 +205,12 @@ export default function GarageScreen() {
       </View>
 
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>My Vehicles</Text>
+        <View>
+          <Text style={styles.sectionTitle}>My Vehicles</Text>
+          <Text style={styles.sectionSubtitle}>
+            Manage saved vehicles and maintenance records.
+          </Text>
+        </View>
 
         <Link href="/add-vehicle" asChild>
           <Pressable style={styles.addButton}>
@@ -133,70 +219,160 @@ export default function GarageScreen() {
         </Link>
       </View>
 
-      {vehicles.map((v) => {
-        const dueSoon = isDueSoon(v.mileage, v.nextOilDue);
+      {photoError ? <Text style={styles.errorText}>{photoError}</Text> : null}
 
-        return (
-          <View key={v.id} style={styles.vehicleRow}>
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text style={styles.vehicleName}>{v.name}</Text>
-              <Text style={styles.meta}>
-                Mileage: {v.mileage.toLocaleString()} mi
-              </Text>
-              <Text style={styles.meta}>
-                Next oil due: {v.nextOilDue.toLocaleString()} mi
-              </Text>
+      {vehicles.length === 0 ? (
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyTitle}>No vehicles yet</Text>
+          <Text style={styles.emptyText}>
+            Add your first vehicle to start tracking mileage, service history,
+            and maintenance reminders.
+          </Text>
+        </View>
+      ) : (
+        vehicles.map((v) => {
+          const dueSoon = isDueSoon(v.mileage, v.nextOilDue);
+          const vehicleId = String(v.id);
+          const photoUri = vehiclePhotos[vehicleId];
 
-              {dueSoon ? (
-                <Text style={styles.badgeDueSoon}>⚠ Due Soon</Text>
-              ) : (
-                <Text style={styles.badgeOk}>✓ On Track</Text>
-              )}
+          return (
+            <View key={v.id} style={styles.vehicleCard}>
+              <View style={styles.vehicleTopRow}>
+                <View style={styles.photoColumn}>
+                  {photoUri ? (
+                    <Image
+                      source={{ uri: photoUri }}
+                      style={styles.vehicleImage}
+                    />
+                  ) : (
+                    <View style={styles.photoPlaceholder}>
+                      <Text style={styles.photoPlaceholderText}>No Photo</Text>
+                    </View>
+                  )}
+
+                  <Pressable
+                    style={styles.photoButton}
+                    onPress={() => pickVehiclePhoto(vehicleId)}
+                  >
+                    <Text style={styles.photoButtonText}>
+                      {photoUri ? "Change" : "Add Photo"}
+                    </Text>
+                  </Pressable>
+                </View>
+
+                <View style={styles.vehicleInfo}>
+                  <View style={styles.vehicleTitleRow}>
+                    <Text style={styles.vehicleName}>{v.name}</Text>
+
+                    {dueSoon ? (
+                      <Text style={styles.badgeDueSoon}>Due Soon</Text>
+                    ) : (
+                      <Text style={styles.badgeOk}>On Track</Text>
+                    )}
+                  </View>
+
+                  <Text style={styles.meta}>
+                    Mileage: {v.mileage.toLocaleString()} mi
+                  </Text>
+                  <Text style={styles.meta}>
+                    Next oil due: {v.nextOilDue.toLocaleString()} mi
+                  </Text>
+                </View>
+              </View>
+
+              <Link
+                href={{
+                  pathname: "/vehicle-details",
+                  params: { vehicleId: v.id },
+                }}
+                asChild
+              >
+                <Pressable style={styles.button}>
+                  <Text style={styles.buttonText}>View Details</Text>
+                </Pressable>
+              </Link>
             </View>
-
-            <Link
-              href={{
-                pathname: "/vehicle-details",
-                params: { vehicleId: v.id },
-              }}
-              asChild
-            >
-              <Pressable style={styles.button}>
-                <Text style={styles.buttonText}>Details</Text>
-              </Pressable>
-            </Link>
-          </View>
-        );
-      })}
+          );
+        })
+      )}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  title: {
-    fontSize: 28,
+  heroCard: {
+    padding: 18,
+    borderRadius: 18,
+    borderWidth: 1,
+    gap: 6,
+    borderColor: colors.border,
+    backgroundColor: colors.primary,
+  },
+  kicker: {
+    fontSize: 13,
     fontWeight: "700",
-    color: colors.text,
+    color: colors.primarySoft,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  title: {
+    fontSize: 30,
+    fontWeight: "800",
+    color: colors.white,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 15,
     lineHeight: 22,
+    color: colors.primarySoft,
+  },
+
+  summaryRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  summaryCard: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  summaryNumber: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: colors.text,
+  },
+  summaryLabel: {
+    fontSize: 14,
+    fontWeight: "600",
     color: colors.subtext,
-    marginBottom: 4,
   },
 
   card: {
     padding: 14,
     borderWidth: 1,
     borderRadius: 14,
-    gap: 6,
+    gap: 10,
     borderColor: colors.border,
     backgroundColor: colors.surface,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   cardTitle: {
     fontSize: 16,
     fontWeight: "700",
     color: colors.text,
+  },
+  cardSubTitle: {
+    fontSize: 13,
+    color: colors.subtext,
+  },
+  weatherIcon: {
+    fontSize: 24,
   },
   cardBody: {
     fontSize: 14,
@@ -209,53 +385,157 @@ const styles = StyleSheet.create({
     color: colors.danger,
     fontWeight: "600",
   },
+
+  weatherGrid: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  weatherItem: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: colors.surfaceSoft,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  weatherValue: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: colors.text,
+  },
+  weatherLabel: {
+    fontSize: 12,
+    color: colors.subtext,
+    marginTop: 2,
+  },
+  tipBox: {
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: colors.primarySoft,
+  },
   tipText: {
     fontSize: 14,
     lineHeight: 20,
     fontWeight: "600",
-    marginTop: 6,
-    color: colors.primary,
+    color: colors.primaryDark,
   },
 
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 8,
+    marginTop: 4,
+    gap: 12,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: "700",
+    fontWeight: "800",
     color: colors.text,
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.subtext,
   },
 
   addButton: {
-    paddingVertical: 8,
+    paddingVertical: 9,
     paddingHorizontal: 12,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.primary,
     backgroundColor: colors.primarySoft,
   },
   addButtonText: {
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "800",
     color: colors.primary,
   },
 
-  vehicleRow: {
-    padding: 14,
+  emptyCard: {
+    padding: 16,
     borderWidth: 1,
     borderRadius: 14,
-    flexDirection: "row",
-    gap: 12,
-    alignItems: "center",
+    gap: 6,
     borderColor: colors.border,
     backgroundColor: colors.surface,
   },
-  vehicleName: {
+  emptyTitle: {
     fontSize: 16,
     fontWeight: "700",
+    color: colors.text,
+  },
+  emptyText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.subtext,
+  },
+
+  vehicleCard: {
+    padding: 14,
+    borderWidth: 1,
+    borderRadius: 16,
+    gap: 12,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  vehicleTopRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  photoColumn: {
+    width: 86,
+    gap: 8,
+    alignItems: "center",
+  },
+  vehicleImage: {
+    width: 76,
+    height: 76,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  photoPlaceholder: {
+    width: 76,
+    height: 76,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  photoPlaceholderText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: colors.primary,
+    textAlign: "center",
+  },
+  photoButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
+  },
+  photoButtonText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: colors.primary,
+    textAlign: "center",
+  },
+
+  vehicleInfo: {
+    flex: 1,
+    gap: 5,
+  },
+  vehicleTitleRow: {
+    gap: 6,
+  },
+  vehicleName: {
+    fontSize: 17,
+    fontWeight: "800",
     color: colors.text,
   },
   meta: {
@@ -264,27 +544,38 @@ const styles = StyleSheet.create({
   },
 
   badgeDueSoon: {
-    fontSize: 14,
-    fontWeight: "700",
+    alignSelf: "flex-start",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 999,
+    overflow: "hidden",
+    fontSize: 12,
+    fontWeight: "800",
     color: colors.warning,
+    backgroundColor: colors.warningSoft,
   },
   badgeOk: {
-    fontSize: 14,
-    fontWeight: "700",
+    alignSelf: "flex-start",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 999,
+    overflow: "hidden",
+    fontSize: 12,
+    fontWeight: "800",
     color: colors.success,
+    backgroundColor: colors.successSoft,
   },
 
   button: {
-    paddingVertical: 10,
+    paddingVertical: 11,
     paddingHorizontal: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.primary,
+    borderRadius: 12,
+    alignItems: "center",
     backgroundColor: colors.primary,
   },
   buttonText: {
     fontSize: 14,
-    fontWeight: "700",
-    color: "#FFFFFF",
+    fontWeight: "800",
+    color: colors.white,
   },
 });
